@@ -25,7 +25,10 @@ import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -57,6 +60,12 @@ public class RNFirebaseNotifications extends ReactContextBaseJavaModule implemen
     localBroadcastManager.registerReceiver(
       new RemoteNotificationReceiver(),
       new IntentFilter(RNFirebaseMessagingService.REMOTE_NOTIFICATION_EVENT)
+    );
+
+    // Subscribe to mkt notifications // frankie
+    localBroadcastManager.registerReceiver(
+            new MktNotificationReceiver(),
+            new IntentFilter(RNFirebaseMessagingService.MKT_NOTIFICATION_EVENT)
     );
 
     // Subscribe to scheduled notification events
@@ -447,6 +456,80 @@ public class RNFirebaseNotifications extends ReactContextBaseJavaModule implemen
           getReactApplicationContext(),
           "notifications_notification_received",
           messageMap
+        );
+      }
+    }
+  }
+
+  // frankie
+  private class MktNotificationReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      if (getReactApplicationContext().hasActiveCatalystInstance()) {
+        Log.d(TAG, "Received new remote notification");
+
+
+        Bundle notificationBundle = intent.getParcelableExtra("notification");
+
+        WritableMap notificationMap = Arguments.createMap();
+        WritableMap dataMap = Arguments.createMap();
+
+        // Cross platform notification properties
+        String body = notificationBundle.getString("body");
+        if (body != null) {
+          notificationMap.putString("body", body);
+        }
+        if (notificationBundle.getBundle("data") != null) {
+          Map<String, String> map = new HashMap<String, String>();
+
+          Set<String> ks = notificationBundle.getBundle("data").keySet();
+          Iterator<String> iterator = ks.iterator();
+          while (iterator.hasNext()) {
+            String key = iterator.next();
+            dataMap.putString(key, notificationBundle.getBundle("data").getString(key));
+          }
+        }
+        notificationMap.putMap("data", dataMap);
+
+        if (notificationBundle.getString("notificationId") != null) {
+          notificationMap.putString("notificationId", notificationBundle.getString("notificationId"));
+        }
+        if (notificationBundle.getString("sound") != null) {
+          notificationMap.putString("sound", notificationBundle.getString("sound"));
+        }
+        String title = notificationBundle.getString("title");
+        if (title != null) {
+          notificationMap.putString("title", title);
+        }
+
+        // Android specific notification properties
+        WritableMap androidMap = Arguments.createMap();
+        if (notificationBundle.getString("clickAction") != null) {
+          androidMap.putString("clickAction", notificationBundle.getString("clickAction"));
+        }
+        if (notificationBundle.getString("color") != null) {
+          androidMap.putString("color", notificationBundle.getString("color"));
+        }
+        WritableMap iconMap = Arguments.createMap();
+        if (notificationBundle.getString("icon") != null) {
+          iconMap.putString("icon", notificationBundle.getString("icon"));
+        }else{
+          iconMap.putString("icon", "ic_notification");
+        }
+        androidMap.putMap("smallIcon", iconMap);
+        if (notificationBundle.getString("tag") != null) {
+          androidMap.putString("group", notificationBundle.getString("tag"));
+          androidMap.putString("tag", notificationBundle.getString("tag"));
+        }
+        androidMap.putString("channelId", "main-hon-channel");
+        notificationMap.putMap("android", androidMap);
+
+//        notificationManager.displayNotification(notificationMap, null);
+
+        Utils.sendEvent(
+                getReactApplicationContext(),
+                "notifications_notification_received",
+                notificationMap
         );
       }
     }
